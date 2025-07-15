@@ -1,19 +1,26 @@
 import { Tool } from "@/components/Canvas";
 import { getExistingShapes } from "./http";
 
-type Shape=
-    {
-    type:"rectangle";
-    x:number;
-    y:number;
-    width:number;
-    height:number;
-} | {
-    type:"circle";
-    centerX:number;
-    centerY:number;
-    radius:number
-}
+type PencilShape = {
+    type: "pencil";
+    points: { x: number; y: number }[];
+};
+
+type Shape =
+    | {
+          type: "rectangle";
+          x: number;
+          y: number;
+          width: number;
+          height: number;
+      }
+    | {
+          type: "circle";
+          centerX: number;
+          centerY: number;
+          radius: number;
+      }
+    | PencilShape;
 
 
 export class Game{
@@ -26,6 +33,7 @@ export class Game{
     private startX:number;
     private startY:number;
     private selectedtool:Tool="circle"
+    private currentPencilPoints: { x: number; y: number }[] | null = null;
 
     constructor(canvas:HTMLCanvasElement,roomId:number,socket:WebSocket){
         this.canvas=canvas;
@@ -41,8 +49,8 @@ export class Game{
         this.startY=0;
     }
 
-    setTool(tool:"circle"|"rectangle"|"pencil"){
-        this.selectedtool=tool;
+    setTool(tool: Tool) {
+        this.selectedtool = tool;
     }
 
    async init(){
@@ -51,14 +59,14 @@ export class Game{
     }
 
     initHandlers(){
-          this.socket.onmessage=(event)=>{
-                const message=JSON.parse(event.data)
-                if(message.type=="chat"){
-                    const parsedShape=JSON.parse(message.message)
-                    this.existingShapes.push(parsedShape)
-                    this.clearCanvas();
-                }
+        this.socket.onmessage = (event) => {
+            const message = JSON.parse(event.data);
+            if (message.type == "chat") {
+                const parsedShape = JSON.parse(message.message);
+                this.existingShapes.push(parsedShape);
+                this.clearCanvas();
             }
+        }
     }
 
     clearCanvas(){
@@ -76,21 +84,46 @@ export class Game{
                     this.ckt.arc(shape.centerX,shape.centerY,Math.abs(shape.radius),0,Math.PI * 2);
                     this.ckt.stroke();
                     this.ckt.closePath();
+                }else if(shape.type=="pencil"){
+                    this.drawPencil(shape.points);
                 }
         })
     }
 
     initMouseHandlers(){
-         this.canvas.addEventListener("mousedown",(e)=>{
-            this.clicked=true;
-            this.startX=(e.clientX);
-            this.startY=(e.clientY);
-            })
+         this.canvas.addEventListener("mousedown", (e) => {
+            this.clicked = true;
+            this.startX = e.clientX;
+            this.startY = e.clientY;
+            if (this.selectedtool === "pencil") {
+                this.currentPencilPoints = [{ x: e.clientX, y: e.clientY }];
+            }
+        });
 
 
          this.canvas.addEventListener("mouseup",(e)=>{
-
-                this.clicked=false;
+                // (No eraser logic in mouseup)
+                if (this.selectedtool === "pencil" && this.currentPencilPoints) {
+                    // Finish pencil stroke
+                    this.currentPencilPoints.push({ x: e.clientX, y: e.clientY });
+                    const shape: PencilShape = {
+                        type: "pencil",
+                        points: this.currentPencilPoints,
+                    };
+                    this.existingShapes.push(shape);
+                    this.socket.send(
+                        JSON.stringify({
+                            type: "chat",
+                            message: JSON.stringify({ shape }),
+                            roomId: this.roomId,
+                        })
+                    );
+                    this.currentPencilPoints = null;
+                    this.clicked = false;
+                    this.clearCanvas();
+                    return;
+                }
+                this.clicked = false;
                 let width=e.clientX-this.startX;
                 let height=e.clientY-this.startY;
                 
@@ -109,12 +142,16 @@ export class Game{
                 }
                 
             }else if(selectedtool=="circle"){
-                const radius=Math.max(width,height)/2;
-                shape={
-                    type:"circle",
-                    radius:radius,
-                    centerX:this.startX+ radius,
-                    centerY:this.startY+radius
+                let width = e.clientX - this.startX;
+                let height = e.clientY - this.startY;
+                const centerX = this.startX + width / 2;
+                const centerY = this.startY + height / 2;
+                const radius = Math.max(width, height) / 2;
+                shape = {
+                    type: "circle",
+                    radius: Math.abs(radius),
+                    centerX,
+                    centerY
                 }
                 
             }
@@ -138,8 +175,6 @@ export class Game{
         this.canvas.addEventListener("mousemove",(e)=>{
 
             if(this.clicked){
-                let width=e.clientX-this.startX;
-                let height=e.clientY-this.startY;
                 this.clearCanvas()
                 this.ckt.strokeStyle="rgba(255,255,255)"
 
@@ -147,9 +182,13 @@ export class Game{
                 const selectedtool=this.selectedtool;
 
                 if(selectedtool=="rectangle"){
+                let width=e.clientX-this.startX;
+                let height=e.clientY-this.startY;
                 this.ckt.strokeRect(this.startX,this.startY,width,height)}
 
                 else if(selectedtool=="circle"){
+                    let width=e.clientX-this.startX;
+                    let height=e.clientY-this.startY;
                     const centerX=this.startX+width /2;
                     const centerY=this.startY+height / 2;
                     const radius=Math.max(width,height)/2;
@@ -157,11 +196,27 @@ export class Game{
                     this.ckt.arc(centerX,centerY,Math.abs(radius),0,Math.PI * 2);
                     this.ckt.stroke();
                     this.ckt.closePath();
+                }else if(selectedtool=="pencil"){
+                    if (this.currentPencilPoints) {
+                        this.currentPencilPoints.push({ x: e.clientX, y: e.clientY });
+                        this.drawPencil(this.currentPencilPoints);
+                    }
                 }
 
                
               
             } 
             })
+    }
+
+    drawPencil(points: { x: number; y: number }[]) {
+        if (points.length < 2) return;
+        this.ckt.beginPath();
+        this.ckt.moveTo(points[0].x, points[0].y);
+        for (let i = 1; i < points.length; i++) {
+            this.ckt.lineTo(points[i].x, points[i].y);
+        }
+        this.ckt.stroke();
+        this.ckt.closePath();
     }
 }

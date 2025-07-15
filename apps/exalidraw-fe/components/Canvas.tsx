@@ -6,7 +6,7 @@ import { IconButton } from "./IconButton";
 import {Circle, Pencil, RectangleHorizontalIcon} from "lucide-react"
 import { Game } from "@/draw/Game";
 
-export type Tool="circle"|"rectangle"|"pencil"
+export type Tool = "circle" | "rectangle" | "pencil";
 
 export function Canvas({roomId,socket}:{roomId:number,socket:WebSocket}){
     const canvasRef=useRef<HTMLCanvasElement>(null);
@@ -41,9 +41,9 @@ function TopBar({selectedtool,setselectedtool}:{
 }){
     return <div className="fixed top-10 left-10">
         <div className="flex gap-2">
-            <IconButton activated ={selectedtool==="pencil"}icon={<Pencil/>} onClick={()=>{setselectedtool("pencil")}}/>
-            <IconButton activated ={selectedtool==="rectangle"} icon={<RectangleHorizontalIcon/>} onClick={()=>{setselectedtool("rectangle")}}/>
-            <IconButton activated ={selectedtool==="circle"} icon={<Circle/>} onClick={()=>{setselectedtool("circle")}}/>
+            <IconButton activated={selectedtool==="pencil"} icon={<Pencil/>} onClick={()=>{setselectedtool("pencil")}}/>
+            <IconButton activated={selectedtool==="rectangle"} icon={<RectangleHorizontalIcon/>} onClick={()=>{setselectedtool("rectangle")}}/>
+            <IconButton activated={selectedtool==="circle"} icon={<Circle/>} onClick={()=>{setselectedtool("circle")}}/>
         </div>
     </div>
 
