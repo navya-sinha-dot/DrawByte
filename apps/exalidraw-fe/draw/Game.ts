@@ -163,9 +163,7 @@ export class Game{
 
             this.socket.send(JSON.stringify({
                    type:"chat",
-                   message:JSON.stringify({
-                    shape
-                   }),
+                   message:JSON.stringify({ shape }),
                    roomId:this.roomId
                 }))
              

@@ -6,9 +6,11 @@ export  async function getExistingShapes(roomId:number){
         const messages=res.data.messages;
 
         const shapes= messages.map((x:{message:string})=>{
-            const messageData=JSON.parse(x.message)
-
-            return messageData;
-        })
+            try {
+                return JSON.parse(x.message);
+            } catch (e) {
+                return null;
+            }
+        }).filter(Boolean);
         return shapes;
     }

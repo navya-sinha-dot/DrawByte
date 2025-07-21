@@ -130,6 +130,16 @@ app.get("/room/:slug", async (req, res) => {
   });
 });
 
+app.get("/rooms", async (req, res) => {
+  try {
+    const rooms = await prismaClient.room.findMany({
+      orderBy: { createdAt: "desc" },
+    });
+    res.json({ rooms });
+  } catch (e) {
+    res.status(500).json({ rooms: [], error: "Failed to fetch rooms" });
+  }
+});
 
 
 app.listen(3001, () => {
