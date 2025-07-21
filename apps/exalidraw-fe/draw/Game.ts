@@ -4,6 +4,7 @@ import { getExistingShapes } from "./http";
 type PencilShape = {
     type: "pencil";
     points: { x: number; y: number }[];
+    color?: string;
 };
 
 type Shape =
@@ -13,12 +14,14 @@ type Shape =
           y: number;
           width: number;
           height: number;
+          color?: string;
       }
     | {
           type: "circle";
           centerX: number;
           centerY: number;
           radius: number;
+          color?: string;
       }
     | PencilShape;
 
@@ -34,6 +37,7 @@ export class Game{
     private startY:number;
     private selectedtool:Tool="circle"
     private currentPencilPoints: { x: number; y: number }[] | null = null;
+    private color: string = "#ffffff";
 
     constructor(canvas:HTMLCanvasElement,roomId:number,socket:WebSocket){
         this.canvas=canvas;
@@ -51,6 +55,10 @@ export class Game{
 
     setTool(tool: Tool) {
         this.selectedtool = tool;
+    }
+
+    setColor(color: string) {
+        this.color = color;
     }
 
    async init(){
@@ -76,15 +84,17 @@ export class Game{
 
         this.existingShapes.map((shape)=>{
             if(shape.type=="rectangle"){
-                  this.ckt.strokeStyle="rgba(255,255,255)"
+                  this.ckt.strokeStyle=shape.color || "#ffffff";
                 this.ckt.strokeRect(shape.x,shape.y,shape.width,shape.height)
             }else if(shape.type=="circle"){
                     
                     this.ckt.beginPath();
+                    this.ckt.strokeStyle=shape.color || "#ffffff";
                     this.ckt.arc(shape.centerX,shape.centerY,Math.abs(shape.radius),0,Math.PI * 2);
                     this.ckt.stroke();
                     this.ckt.closePath();
                 }else if(shape.type=="pencil"){
+                    this.ckt.strokeStyle=shape.color || "#ffffff";
                     this.drawPencil(shape.points);
                 }
         })
@@ -109,6 +119,7 @@ export class Game{
                     const shape: PencilShape = {
                         type: "pencil",
                         points: this.currentPencilPoints,
+                        color: this.color,
                     };
                     this.existingShapes.push(shape);
                     this.socket.send(
@@ -137,8 +148,8 @@ export class Game{
                     x:this.startX,
                     y:this.startY,
                     width:width,
-                    height:height
-                    
+                    height:height,
+                    color: this.color
                 }
                 
             }else if(selectedtool=="circle"){
@@ -151,7 +162,8 @@ export class Game{
                     type: "circle",
                     radius: Math.abs(radius),
                     centerX,
-                    centerY
+                    centerY,
+                    color: this.color
                 }
                 
             }
@@ -174,7 +186,7 @@ export class Game{
 
             if(this.clicked){
                 this.clearCanvas()
-                this.ckt.strokeStyle="rgba(255,255,255)"
+                this.ckt.strokeStyle=this.color;
 
                 //@ts-ignore
                 const selectedtool=this.selectedtool;
@@ -197,6 +209,7 @@ export class Game{
                 }else if(selectedtool=="pencil"){
                     if (this.currentPencilPoints) {
                         this.currentPencilPoints.push({ x: e.clientX, y: e.clientY });
+                        this.ckt.strokeStyle=this.color;
                         this.drawPencil(this.currentPencilPoints);
                     }
                 }
